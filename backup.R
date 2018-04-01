@@ -1,41 +1,54 @@
 # Login to Salesforce
 library(RForcecom)
-password <- "gfutzmars2018n0ljYwQQqYVWfu9RIfPqWIn8"
+password <- "gfutzmars2018*hn5OC4tzSecOhgHKnUtZL05C"
 session <- rforcecom.login("admin@utzmars.org", password)
 
+# Cached data
+metadata <- readRDS("metadata.RDS")
+data <- readRDS("data.RDS")
+
+# Objects to retrieve
+activities.objects <- c("FDP_submission__c", "farmer__c", "farmer_BL__c", "Farm__c", 
+                        "Farm_BL__c", "plot__c", "AODiagnostic__c",
+                        "Adoption_observations__c", "PL_FDP__c", "FDP_calendar__c",
+                        "User_performance__c", "Performance_detail__c")
+setup.objects <- c("Contact", "User", "village__c", "district__c", "country__c", 
+                   "Recommendation_and_volumes__c", "recommendation__c",
+                   "recommendationActivities__c", "inputs__c", "activity__c")
+all.objects <- c(activities.objects, setup.objects)
+
 # Retrieve meta data
-objects <- rforcecom.getObjectList(session)
-objectsExclude <- c("ActivityHistory", "AggregateResult")
-objects <- objects[!(objects$name %in% objectsExclude), ]
 metadata <- list()
-for(i in seq_along(objects)) {
-      metadata[[i]] <- rforcecom.getObjectDescription(session, objects$name[i])
-      names(metadata)[i] <- as.character(objects$name[i])
+for(i in seq_along(all.objects)) {
+      metadata[[i]] <- rforcecom.getObjectDescription(session, all.objects[i])
+      names(metadata)[i] <- as.character(all.objects[i])
 }
 
 # Retrieve data
 data <- list()
-for(i in seq_along(metadata)) {
-      data[[i]] <- rforcecom.retrieve(session, names(metadata)[i], metadata[[i]]$name)
+for(i in seq_along(all.objects)) {
+      data[[i]] <- rforcecom.retrieve(session, all.objects[i], metadata[[i]]$name)
       names(data)[i] <- as.character(names(metadata)[i])
 }
 
-# Save data in RDS
-saveRDS(objects, "objects.RDS")
-saveRDS(metadata, "metadata.RDS")
-saveRDS(data, "data.RDS")
-
-# Save data in Excel file
-library(xlsx)
+# Export metadata
+# Create folder
 currDate <- Sys.Date()
-# Objects
-fileNameObjects <- paste("objects_backup_", currDate, ".xlsx", sep = "")
-write.xlsx(objects, paste("objects", file.name, sep = ""), sheetName = "objects")
-# Meta data
+md.dir.name <- paste("MetaData_export_", currDate, sep = "")
+dir.create(md.dir.name)
+# Export metadata
+for(i in seq_along(all.objects)) {
+      file.name.temp <- paste(md.dir.name, "/", i, "_", all.objects[i], ".csv", sep = "")
+      write.csv(metadata[[i]], file.name.temp)
+      rm(file.name.temp)
+}
+saveRDS(metadata, paste(md.dir.name, "/metadata.RDS", sep = ""))
 
 # Data
-for(i in seq_along(metadata)) {
-      write.xlsx(data[[i]], paste("data", file.name, ), 
-                 sheetName = as.character(objects$name[i]),
-                 append = TRUE)
+data.dir.name <- paste("Data_export_", currDate, sep = "")
+dir.create(data.dir.name)
+for(i in seq_along(all.objects)) {
+      file.name.temp <- paste(data.dir.name, "/", i, "_", all.objects[i], ".csv", sep = "")
+      write.csv(data[[i]], file.name.temp, row.names = FALSE, quote = TRUE)
 }
+saveRDS(data, paste(data.dir.name, "/data.RDS", sep = ""))
